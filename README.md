@@ -332,10 +332,44 @@ Dự án Quado được thiết kế theo dạng plugin/strategy pattern rất d
   mvn clean compile
   ```
 
+
+---
+## ⚠️ Quan trọng: Vấn đề tương thích với Eclipse JDT Language Server
+
+### 🐛 Vấn đề:
+Khi sử dụng ANTLR4 để tạo parser từ grammar viết bằng chữ thường (ví dụ: `grammar pascal;`), ANTLR4 sẽ sinh ra các file Java có tên bắt đầu bằng chữ thường như `pascalLexer.java`, `pascalParser.java`.
+
+**Tuy nhiên**, Eclipse JDT Language Server (sử dụng trong Eclipse IDE, Spring Tool Suite, và VS Code với Java Extensions) có **cơ chế phân tích cú pháp "thông minh" quá mức**:
+- Nó **giả định** các tên bắt đầu bằng chữ thường **không phải là class**
+- Thay vào đó, nó coi đó là **biến, method, hoặc package reference**
+- Kết quả: JDT LS **tự tạo** các file `.class` lỗi với nội dung: `java.lang.Error: Unresolved compilation problems`
+
+### 💥 Hậu quả:
+- File `.class` lỗi được tạo trong `target/classes/`
+- Maven đóng gói file lỗi này vào JAR cuối cùng
+- Ứng dụng **crash runtime** khi khởi tạo bean sử dụng các class này
+
+### ✅ Giải pháp:
+
+#### **Phương án 1: Đổi tên grammar thành PascalCase (Khuyến nghị)**
+
+#### Thay vì: 
+  - grammar pascal;
+
+#### Nên dùng:
+  - grammar Pascal;
+
+#### **Phương án 2: Cấu hình Eclipse không auto-build**
+
+Project → Properties → Builders → Bỏ check "Java Builder"
+
+Hoặc:
+
+Window → Preferences → General → Workspace → Bỏ check "Build automatically"
+
 ---
 
 ## 📄 License
-
 MIT License — xem file [LICENSE](LICENSE) để biết chi tiết.
 
 ---

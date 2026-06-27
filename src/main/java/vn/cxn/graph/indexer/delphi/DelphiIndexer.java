@@ -46,9 +46,9 @@ public class DelphiIndexer implements SourceCodeIndexer {
 
         // 2. Phân tích bằng ANTLR (Thử sức nếu cú pháp chuẩn Pascal)
         try {
-            pascalLexer lexer = new pascalLexer(CharStreams.fromPath(file, StandardCharsets.UTF_8));
+            PascalLexer lexer = new PascalLexer(CharStreams.fromPath(file, StandardCharsets.UTF_8));
             CommonTokenStream tokens = new CommonTokenStream(lexer);
-            pascalParser parser = new pascalParser(tokens);
+            PascalParser parser = new PascalParser(tokens);
             // Tắt báo lỗi console mặc định để đỡ trôi log nếu parse lỗi
             parser.removeErrorListeners();
             ParseTree tree = parser.program();
@@ -216,26 +216,26 @@ public class DelphiIndexer implements SourceCodeIndexer {
         }
     }
 
-    public static class DelphiParseListener extends pascalBaseListener {
+    public static class DelphiParseListener extends PascalBaseListener {
         public String unitName;
         public final Set<String> methods = new HashSet<>();
 
         @Override
-        public void enterProgramHeading(pascalParser.ProgramHeadingContext ctx) {
+        public void enterProgramHeading(PascalParser.ProgramHeadingContext ctx) {
             if (ctx.identifier() != null) {
                 unitName = ctx.identifier().getText();
             }
         }
 
         @Override
-        public void enterProcedureDeclaration(pascalParser.ProcedureDeclarationContext ctx) {
+        public void enterProcedureDeclaration(PascalParser.ProcedureDeclarationContext ctx) {
             if (ctx.identifier() != null) {
                 methods.add(ctx.identifier().getText());
             }
         }
 
         @Override
-        public void enterFunctionDeclaration(pascalParser.FunctionDeclarationContext ctx) {
+        public void enterFunctionDeclaration(PascalParser.FunctionDeclarationContext ctx) {
             if (ctx.identifier() != null) {
                 methods.add(ctx.identifier().getText());
             }
