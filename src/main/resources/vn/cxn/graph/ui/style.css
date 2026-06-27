@@ -1,0 +1,168 @@
+/* Color Palette */
+.root {
+    -fx-font-family: "Segoe UI", -apple-system, sans-serif;
+    -fx-background-color: #0d1117;
+    -fx-text-fill: #c9d1d9;
+}
+
+/* Header styling */
+.header-box {
+    -fx-padding: 10 0 15 0;
+    -fx-border-color: #30363d;
+    -fx-border-width: 0 0 1 0;
+}
+
+.header-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #58a6ff;
+}
+
+.header-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: #8b949e;
+}
+
+/* TitledPane styling */
+.titled-pane {
+    -fx-background-color: transparent;
+    -fx-border-color: #30363d;
+    -fx-border-width: 1px;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+}
+
+.titled-pane > .title {
+    -fx-background-color: #161b22;
+    -fx-text-fill: #c9d1d9;
+    -fx-font-weight: bold;
+    -fx-padding: 8px 12px;
+    -fx-background-radius: 8px 8px 0 0;
+}
+
+.titled-pane > .content {
+    -fx-background-color: #0d1117;
+    -fx-text-fill: #c9d1d9;
+    -fx-padding: 15px;
+    -fx-background-radius: 0 0 8px 8px;
+    -fx-border-color: transparent;
+}
+
+/* Buttons styling */
+.button {
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+    -fx-padding: 8px 16px;
+    -fx-background-radius: 6px;
+}
+
+.btn-browse {
+    -fx-background-color: #21262d;
+    -fx-text-fill: #c9d1d9;
+    -fx-border-color: #30363d;
+    -fx-border-width: 1px;
+    -fx-border-radius: 6px;
+}
+.btn-browse:hover {
+    -fx-background-color: #30363d;
+}
+
+.btn-primary {
+    -fx-background-color: #238636;
+    -fx-text-fill: #ffffff;
+    -fx-border-color: transparent;
+}
+.btn-primary:hover {
+    -fx-background-color: #2ea043;
+}
+
+.btn-secondary {
+    -fx-background-color: #1f6feb;
+    -fx-text-fill: #ffffff;
+    -fx-border-color: transparent;
+}
+.btn-secondary:hover {
+    -fx-background-color: #388bfd;
+}
+
+.btn-danger {
+    -fx-background-color: #da3633;
+    -fx-text-fill: #ffffff;
+    -fx-border-color: transparent;
+}
+.btn-danger:hover {
+    -fx-background-color: #f85149;
+}
+
+/* Fields styling */
+.text-field {
+    -fx-background-color: #161b22;
+    -fx-text-fill: #c9d1d9;
+    -fx-border-color: #30363d;
+    -fx-border-width: 1px;
+    -fx-border-radius: 6px;
+    -fx-padding: 8px;
+}
+.text-field:focused {
+    -fx-border-color: #58a6ff;
+}
+
+/* Console logs */
+.log-console {
+    -fx-control-inner-background: #161b22;
+    -fx-text-fill: #58a6ff;
+    -fx-font-family: "Consolas", Monaco, monospace;
+    -fx-font-size: 12px;
+    -fx-border-color: #30363d;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+}
+
+/* Labels and Texts */
+.field-label {
+    -fx-text-fill: #8b949e;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+}
+
+.status-text {
+    -fx-text-fill: #c9d1d9;
+    -fx-font-size: 13px;
+}
+
+.info-label {
+    -fx-text-fill: #8b949e;
+    -fx-font-size: 12px;
+}
+
+/* Status Badges */
+.status-badge-online {
+    -fx-background-color: #238636;
+    -fx-text-fill: #ffffff;
+    -fx-font-weight: bold;
+    -fx-padding: 4px 10px;
+    -fx-background-radius: 12px;
+    -fx-font-size: 11px;
+    -fx-alignment: center;
+}
+
+.status-badge-offline {
+    -fx-background-color: #da3633;
+    -fx-text-fill: #ffffff;
+    -fx-font-weight: bold;
+    -fx-padding: 4px 10px;
+    -fx-background-radius: 12px;
+    -fx-font-size: 11px;
+    -fx-alignment: center;
+}
+
+/* Progress bar styling */
+.progress-bar > .track {
+    -fx-background-color: #161b22;
+    -fx-background-radius: 8px;
+}
+
+.progress-bar > .bar {
+    -fx-background-color: linear-gradient(to right, #238636, #2ea043);
+    -fx-background-radius: 8px;
+}
