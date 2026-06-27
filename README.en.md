@@ -25,8 +25,6 @@
 | **JDK** | 21+ | Required to build and run the application |
 | **Maven** | 3.8+ | Required to build the project |
 
-> ℹ️ **Note:** Unlike previous versions, you **do not need** Python or Node.js installed on your machine. All source files are parsed directly using Java and ANTLR4.
-
 **Quick check in terminal:**
 ```bash
 # Check Java
@@ -198,16 +196,19 @@ Quado/
 │   │   └── MainController.java      # JavaFX UI Controller
 │   ├── indexer/
 │   │   ├── SourceCodeIndexer.java   # Common interface for all Indexers
-│   │   ├── JavaIndexer.java         # Java scanner using JavaParser
-│   │   ├── PythonIndexer.java       # Python scanner using ANTLR4
-│   │   ├── TypeScriptIndexer.java   # TypeScript scanner using ANTLR4
 │   │   ├── MethodCallInfo.java      # Model storing method call links
 │   │   ├── delphi/
 │   │   │   └── DelphiIndexer.java   # Delphi scanner using ANTLR4
 │   │   ├── golang/
 │   │   │   └── GoIndexer.java       # Go scanner using ANTLR4
-│   │   └── sql/
-│   │       └── SqlIndexer.java      # SQL scanner using ANTLR4
+│   │   ├── java/
+│   │   │   └── JavaIndexer.java     # Java scanner using JavaParser
+│   │   ├── python/
+│   │   │   └── PythonIndexer.java   # Python scanner using ANTLR4
+│   │   ├── sql/
+│   │   │   └── SqlIndexer.java      # SQL scanner using ANTLR4
+│   │   └── typescript/
+│   │       └── TypeScriptIndexer.java # TypeScript scanner using ANTLR4
 │   ├── mcp/
 │   │   └── McpGraphTools.java       # 5 MCP Tools for AI Agents
 │   └── service/

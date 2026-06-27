@@ -25,8 +25,6 @@
 | **JDK** | 21+ | Cần thiết để build & chạy ứng dụng |
 | **Maven** | 3.8+ | Dùng để build project |
 
-> ℹ️ **Lưu ý:** Không giống như các phiên bản cũ, bạn **không cần** cài đặt Python hay Node.js trên máy. Tất cả tệp tin nguồn được phân tích trực tiếp bằng Java và ANTLR4.
-
 **Kiểm tra nhanh trên terminal:**
 ```bash
 # Kiểm tra Java
@@ -198,16 +196,19 @@ Quado/
 │   │   └── MainController.java      # JavaFX UI Controller
 │   ├── indexer/
 │   │   ├── SourceCodeIndexer.java   # Interface chung cho các Indexer
-│   │   ├── JavaIndexer.java         # Quét Java bằng JavaParser
-│   │   ├── PythonIndexer.java       # Quét Python bằng ANTLR4
-│   │   ├── TypeScriptIndexer.java   # Quét TypeScript bằng ANTLR4
 │   │   ├── MethodCallInfo.java      # Model lưu trữ liên kết gọi hàm
 │   │   ├── delphi/
 │   │   │   └── DelphiIndexer.java   # Quét Delphi bằng ANTLR4
 │   │   ├── golang/
 │   │   │   └── GoIndexer.java       # Quét Go bằng ANTLR4
-│   │   └── sql/
-│   │       └── SqlIndexer.java      # Quét SQL bằng ANTLR4
+│   │   ├── java/
+│   │   │   └── JavaIndexer.java     # Quét Java bằng JavaParser
+│   │   ├── python/
+│   │   │   └── PythonIndexer.java   # Quét Python bằng ANTLR4
+│   │   ├── sql/
+│   │   │   └── SqlIndexer.java      # Quét SQL bằng ANTLR4
+│   │   └── typescript/
+│   │       └── TypeScriptIndexer.java # Quét TypeScript bằng ANTLR4
 │   ├── mcp/
 │   │   └── McpGraphTools.java       # 5 MCP Tools cho AI Agent
 │   └── service/
@@ -298,7 +299,7 @@ arcadedb.path=./my_custom_graph_folder
 
 ## 🛠️ Hướng dẫn bổ sung Parser mới cho ngôn ngữ khác
 
-Dự án Quado được thiết kế theo dạng plugin/strategy pattern rất dễ mở rộng. Để bổ sung hỗ trợ quét một ngôn ngữ mới (ví dụ: `Go`, `SQL`, `Delphi` hoặc ngôn ngữ bất kỳ), Ban Kỹ thuật thực hiện theo quy trình 3 bước sau:
+Dự án Quado được thiết kế theo dạng plugin/strategy pattern rất dễ mở rộng. Để bổ sung hỗ trợ quét một ngôn ngữ mới (ví dụ: `Go`, `SQL`, `Delphi` hoặc ngôn ngữ bất kỳ), thực hiện theo quy trình 3 bước sau:
 
 ### Bước 1: Định nghĩa Grammar ANTLR4 (nếu sử dụng ANTLR4)
 1. Tạo thư mục tương ứng trong `src/main/antlr4/vn/cxn/graph/indexer/antlr/<ngon_ngu>/`.
