@@ -140,7 +140,7 @@ public class JavaIndexer implements SourceCodeIndexer {
                         db.command("cypher",
                                 "MATCH (c:Class {name: $className, filepath: $filepath}) " +
                                 "MERGE (m:Method {name: $fqMethodName}) " +
-                                "SET m.shortName = $shortName, m.className = $className, m.description = $desc " +
+                                "SET m.shortName = $shortName, m.className = $className, m.description = $desc, m.filepath = $filepath " +
                                 "MERGE (c)-[:CONTAINS]->(m)",
                                 Map.of("className", className, "filepath", filepath, "fqMethodName", fqMethodName, "shortName", methodShortName, "desc", methodDesc)
                         );

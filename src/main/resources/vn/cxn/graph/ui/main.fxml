@@ -19,51 +19,51 @@
     <HBox alignment="CENTER_LEFT" styleClass="header-box">
         <VBox HBox.hgrow="ALWAYS">
             <Label styleClass="header-title" text="VISUAL CODE GRAPH INDEXER" />
-            <Label styleClass="header-subtitle" text="Hệ thống phân tích cú pháp mã nguồn &amp; Nhúng đồ thị ArcadeDB" />
+            <Label styleClass="header-subtitle" text="Source Code Parsing &amp; ArcadeDB Graph Embedding System" />
         </VBox>
     </HBox>
-
+ 
     <!-- Configuration Pane -->
-    <TitledPane animated="false" collapsible="false" styleClass="config-pane" text="CẤU HÌNH THƯ MỤC NGUỒN">
+    <TitledPane animated="false" collapsible="false" styleClass="config-pane" text="SOURCE DIRECTORY CONFIGURATION">
         <VBox spacing="10.0">
             <HBox alignment="CENTER_LEFT" spacing="10.0">
-                <Label prefWidth="120.0" styleClass="field-label" text="Đường dẫn quét:" />
+                <Label prefWidth="120.0" styleClass="field-label" text="Scan Path:" />
                 <TextField fx:id="pathField" styleClass="path-field" HBox.hgrow="ALWAYS" />
-                <Button onAction="#handleBrowse" styleClass="btn-browse" text="Chọn thư mục" />
+                <Button onAction="#handleBrowse" styleClass="btn-browse" text="Browse..." />
             </HBox>
         </VBox>
     </TitledPane>
-
+ 
     <!-- Operations & Control Pane -->
     <HBox spacing="15.0">
         <!-- Indexing Actions -->
-        <TitledPane animated="false" collapsible="false" prefWidth="450.0" styleClass="action-pane" text="ĐIỀU KHIỂN QUÉT MÃ NGUỒN" HBox.hgrow="ALWAYS">
+        <TitledPane animated="false" collapsible="false" prefWidth="450.0" styleClass="action-pane" text="INDEXING CONTROL" HBox.hgrow="ALWAYS">
             <VBox spacing="12.0">
                 <HBox spacing="10.0">
-                    <Button fx:id="btnScan" onAction="#handleScan" prefWidth="140.0" styleClass="btn-primary" text="Bắt đầu quét code" />
-                    <Button fx:id="btnClean" onAction="#handleClean" prefWidth="120.0" styleClass="btn-danger" text="Dọn dẹp DB" />
+                    <Button fx:id="btnScan" onAction="#handleScan" prefWidth="140.0" styleClass="btn-primary" text="Start Indexing" />
+                    <Button fx:id="btnClean" onAction="#handleClean" prefWidth="120.0" styleClass="btn-danger" text="Clean Graph DB" />
                 </HBox>
-                <Label fx:id="statusText" styleClass="status-text" text="Trạng thái: Sẵn sàng." />
+                <Label fx:id="statusText" styleClass="status-text" text="Status: Ready." />
                 <ProgressBar fx:id="progressBar" prefHeight="15.0" prefWidth="400.0" progress="0.0" styleClass="progress-bar" />
             </VBox>
         </TitledPane>
-
+ 
         <!-- MCP Server Actions -->
         <TitledPane animated="false" collapsible="false" prefWidth="450.0" styleClass="action-pane" text="MCP SERVER CONTROL" HBox.hgrow="ALWAYS">
             <VBox spacing="12.0">
                 <HBox alignment="CENTER_LEFT" spacing="10.0">
-                    <Button fx:id="btnToggleMcp" onAction="#handleToggleMcp" prefWidth="180.0" styleClass="btn-secondary" text="Tắt MCP Server (SSE)" />
+                    <Button fx:id="btnToggleMcp" onAction="#handleToggleMcp" prefWidth="180.0" styleClass="btn-secondary" text="Disable MCP Server (SSE)" />
                     <Label fx:id="mcpStatusLabel" styleClass="status-badge-online" text="ONLINE" />
                 </HBox>
-                <Label styleClass="info-label" text="AI Client có thể kết nối thông qua URL:" />
+                <Label styleClass="info-label" text="AI Clients can connect via SSE URL:" />
                 <TextField fx:id="mcpUrlField" editable="false" styleClass="mcp-url-field" text="http://localhost:3000/sse" />
             </VBox>
         </TitledPane>
     </HBox>
-
+ 
     <!-- Console log output -->
     <VBox spacing="5.0" VBox.vgrow="ALWAYS">
-        <Label styleClass="field-label" text="NHẬT KÝ TIẾN TRÌNH (LOG CONSOLE):" />
+        <Label styleClass="field-label" text="PROCESS LOG CONSOLE:" />
         <TextArea fx:id="logConsole" editable="false" prefHeight="250.0" styleClass="log-console" VBox.vgrow="ALWAYS" />
     </VBox>
 </VBox>

@@ -1223,9 +1223,7 @@ LOCAL_ID           : '@' ([A-Z_$@#0-9] | FullWidthLetter)*;
 TEMP_ID            : '#' ([A-Z_$@#0-9] | FullWidthLetter)*;
 DECIMAL            : DEC_DIGIT+;
 ID                 : ( [A-Z_#] | FullWidthLetter) ( [A-Z_#$@0-9] | FullWidthLetter)*;
-STRING options {
-    caseInsensitive = false;
-}      : 'N'? '\'' (~'\'' | '\'\'')* '\'';
+STRING : 'N'? '\'' (~'\'' | '\'\'')* '\'';
 BINARY : '0' 'X' HEX_DIGIT*;
 FLOAT  : DEC_DOT_DEC;
 REAL   : (DECIMAL | DEC_DOT_DEC) ('E' [+-]? DEC_DIGIT+);
@@ -1274,9 +1272,7 @@ fragment DEC_DOT_DEC : (DEC_DIGIT+ '.' DEC_DIGIT+ | DEC_DIGIT+ '.' | '.' DEC_DIG
 fragment HEX_DIGIT   : [0-9A-F];
 fragment DEC_DIGIT   : [0-9];
 
-fragment FullWidthLetter options {
-    caseInsensitive = false;
-}:
+fragment FullWidthLetter:
     '\u00c0' ..'\u00d6'
     | '\u00d8' ..'\u00f6'
     | '\u00f8' ..'\u00ff'

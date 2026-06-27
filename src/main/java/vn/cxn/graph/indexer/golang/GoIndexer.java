@@ -29,7 +29,7 @@ public class GoIndexer implements SourceCodeIndexer {
     @Override
     public void index(Path file, Database db, List<MethodCallInfo> pendingMethodCalls) throws Exception {
         String targetFilepath = file.toAbsolutePath().toString();
-        log.info("Bắt đầu quét file Go bằng ANTLR4: {}", targetFilepath);
+        log.info("Starting Go scan: {}", targetFilepath);
 
         try {
             GoLexer lexer = new GoLexer(CharStreams.fromPath(file, StandardCharsets.UTF_8));
@@ -43,7 +43,7 @@ public class GoIndexer implements SourceCodeIndexer {
 
             importToDatabase(listener, targetFilepath, db, pendingMethodCalls);
         } catch (Exception e) {
-            log.error("Lỗi khi phân tích cú pháp file Go {}: {}", targetFilepath, e.getMessage(), e);
+            log.error("Error parsing Go file {}: {}", targetFilepath, e.getMessage(), e);
         }
     }
 
@@ -69,7 +69,7 @@ public class GoIndexer implements SourceCodeIndexer {
                         "SET c.package = $pkg, c.filepath = $filepath, c.description = 'Go Struct' " +
                         "WITH c " +
                         "MERGE (m:Method {name: $fqName}) " +
-                        "SET m.shortName = $shortName, m.className = $className, m.description = 'Go Method' " +
+                        "SET m.shortName = $shortName, m.className = $className, m.description = 'Go Method', m.filepath = $filepath " +
                         "MERGE (c)-[:CONTAINS]->(m)",
                         Map.of("className", className, "pkg", packageName, "filepath", filepath, "fqName", fqName, "shortName", method.name)
                 );
@@ -78,7 +78,7 @@ public class GoIndexer implements SourceCodeIndexer {
                 db.command("cypher",
                         "MATCH (c:Class {name: $packageName, filepath: $filepath}) " +
                         "MERGE (m:Method {name: $fqName}) " +
-                        "SET m.shortName = $shortName, m.className = $packageName, m.description = 'Go Function' " +
+                        "SET m.shortName = $shortName, m.className = $packageName, m.description = 'Go Function', m.filepath = $filepath " +
                         "MERGE (c)-[:CONTAINS]->(m)",
                         Map.of("packageName", packageName, "filepath", filepath, "fqName", fqName, "shortName", method.name)
                 );

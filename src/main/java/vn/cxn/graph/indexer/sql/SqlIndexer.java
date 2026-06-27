@@ -29,7 +29,7 @@ public class SqlIndexer implements SourceCodeIndexer {
     @Override
     public void index(Path file, Database db, List<MethodCallInfo> pendingMethodCalls) throws Exception {
         String targetFilepath = file.toAbsolutePath().toString();
-        log.info("Bắt đầu quét file SQL bằng ANTLR4: {}", targetFilepath);
+        log.info("Starting SQL scan: {}", targetFilepath);
 
         try {
             TSqlLexer lexer = new TSqlLexer(CharStreams.fromPath(file, StandardCharsets.UTF_8));
@@ -43,7 +43,7 @@ public class SqlIndexer implements SourceCodeIndexer {
 
             importToDatabase(listener, targetFilepath, db);
         } catch (Exception e) {
-            log.error("Lỗi khi phân tích cú pháp file SQL {}: {}", targetFilepath, e.getMessage(), e);
+            log.error("Error parsing SQL file {}: {}", targetFilepath, e.getMessage(), e);
         }
     }
 
@@ -67,7 +67,7 @@ public class SqlIndexer implements SourceCodeIndexer {
                     "SET c.package = 'sql_module', c.filepath = $filepath, c.description = 'SQL Module container' " +
                     "WITH c " +
                     "MERGE (m:Method {name: $fqName}) " +
-                    "SET m.shortName = $shortName, m.className = $moduleClassName, m.description = 'SQL Stored Procedure/Function' " +
+                    "SET m.shortName = $shortName, m.className = $moduleClassName, m.description = 'SQL Stored Procedure/Function', m.filepath = $filepath " +
                     "MERGE (c)-[:CONTAINS]->(m)",
                     Map.of("moduleClassName", moduleClassName, "filepath", filepath, "fqName", moduleClassName + "." + proc, "shortName", proc)
             );

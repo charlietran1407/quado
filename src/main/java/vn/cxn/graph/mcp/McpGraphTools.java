@@ -41,6 +41,31 @@ public class McpGraphTools {
         return summary;
     }
 
+    @McpTool(description = "Liệt kê toàn bộ danh sách các Class và Interface trong cơ sở dữ liệu")
+    public List<Map<String, Object>> getAllClasses() {
+        Database db = arcadeDbService.getDatabase();
+        List<Map<String, Object>> classes = new ArrayList<>();
+
+        db.transaction(() -> {
+            try (ResultSet rs = db.query("cypher", 
+                    "MATCH (c:Class) " +
+                    "RETURN c.name as name, c.package as package, c.filepath as filepath, 'Class' as type")) {
+                while (rs.hasNext()) {
+                    classes.add(new HashMap<>(rs.next().toMap()));
+                }
+            }
+            try (ResultSet rs = db.query("cypher", 
+                    "MATCH (i:Interface) " +
+                    "RETURN i.name as name, i.package as package, i.filepath as filepath, 'Interface' as type")) {
+                while (rs.hasNext()) {
+                    classes.add(new HashMap<>(rs.next().toMap()));
+                }
+            }
+        });
+
+        return classes;
+    }
+
     @McpTool(description = "Tìm kiếm các class phụ thuộc (Dependency Injection, Extends, Implements) của một Class cụ thể")
     public List<Map<String, Object>> findClassDependencies(
             @McpToolParam(description = "Tên Class cần tìm dependency") String className) {

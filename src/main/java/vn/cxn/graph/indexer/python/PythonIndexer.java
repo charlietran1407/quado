@@ -29,13 +29,13 @@ public class PythonIndexer implements SourceCodeIndexer {
     @Override
     public void index(Path file, Database db, List<MethodCallInfo> pendingMethodCalls) throws Exception {
         String targetFilepath = file.toAbsolutePath().toString();
-        log.info("Bắt đầu quét file Python bằng ANTLR4: {}", targetFilepath);
+        log.info("Starting Python scan: {}", targetFilepath);
 
         try {
             Python3Lexer lexer = new Python3Lexer(CharStreams.fromPath(file, StandardCharsets.UTF_8));
             CommonTokenStream tokens = new CommonTokenStream(lexer);
             Python3Parser parser = new Python3Parser(tokens);
-            parser.removeErrorListeners(); // Tránh trôi log console
+            parser.removeErrorListeners(); // Avoid polluting console logs
             ParseTree tree = parser.file_input();
 
             ParseTreeWalker walker = new ParseTreeWalker();
@@ -44,7 +44,7 @@ public class PythonIndexer implements SourceCodeIndexer {
 
             importToDatabase(listener, targetFilepath, db, pendingMethodCalls);
         } catch (Exception e) {
-            log.error("Lỗi khi phân tích cú pháp file Python {}: {}", targetFilepath, e.getMessage(), e);
+            log.error("Error parsing Python file {}: {}", targetFilepath, e.getMessage(), e);
         }
     }
 
@@ -80,7 +80,7 @@ public class PythonIndexer implements SourceCodeIndexer {
                 db.command("cypher",
                         "MATCH (c:Class {name: $className, filepath: $filepath}) " +
                                 "MERGE (m:Method {name: $fqMethodName}) " +
-                                "SET m.shortName = $shortName, m.className = $className, m.description = $desc " +
+                                "SET m.shortName = $shortName, m.className = $className, m.description = $desc, m.filepath = $filepath " +
                                 "MERGE (c)-[:CONTAINS]->(m)",
                         Map.of("className", parentClass, "filepath", filepath, "fqMethodName", fqName, "shortName",
                                 method.name, "desc", desc));
@@ -95,7 +95,7 @@ public class PythonIndexer implements SourceCodeIndexer {
                                 +
                                 "WITH c " +
                                 "MERGE (m:Method {name: $fqMethodName}) " +
-                                "SET m.shortName = $shortName, m.className = $moduleClassName, m.description = $desc " +
+                                "SET m.shortName = $shortName, m.className = $moduleClassName, m.description = $desc, m.filepath = $filepath " +
                                 "MERGE (c)-[:CONTAINS]->(m)",
                         Map.of("moduleClassName", moduleClassName, "filepath", filepath, "fqMethodName", fqName,
                                 "shortName", method.name, "desc", desc));

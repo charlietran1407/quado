@@ -29,7 +29,7 @@ public class CodeIndexerService {
     public CodeIndexerService(ArcadeDbService arcadeDbService, List<SourceCodeIndexer> indexers) {
         this.arcadeDbService = arcadeDbService;
         this.indexers = indexers;
-        log.info("Khởi tạo bộ quét đa ngôn ngữ thành công. Đã nạp {} Indexers: {}", 
+        log.info("Multi-language indexer initialized successfully. Loaded {} Indexers: {}", 
                 indexers.size(), indexers.stream().map(i -> i.getClass().getSimpleName()).collect(Collectors.toList()));
     }
 
@@ -54,8 +54,8 @@ public class CodeIndexerService {
     }
 
     private void scanProject(File projectDir, ProgressListener listener) throws IOException {
-        log.info("Bắt đầu quét mã nguồn đa ngôn ngữ tại thư mục: {}", projectDir.getAbsolutePath());
-        listener.onProgress("Đang tìm kiếm các file mã nguồn hỗ trợ...", 0.0);
+        log.info("Starting multi-language source code scan at directory: {}", projectDir.getAbsolutePath());
+        listener.onProgress("Searching for supported source files...", 0.0);
 
         List<Path> allFiles;
         try (Stream<Path> walk = Files.walk(projectDir.toPath())) {
@@ -74,18 +74,21 @@ public class CodeIndexerService {
         }
 
         int totalFiles = allFiles.size();
-        log.info("Tìm thấy {} file mã nguồn hợp lệ để tiến hành index.", totalFiles);
-        listener.onProgress("Tìm thấy " + totalFiles + " file mã nguồn. Bắt đầu phân tích...", 0.05);
+        log.info("Found {} valid source files for indexing.", totalFiles);
+        listener.onProgress("Found " + totalFiles + " source files. Starting analysis...", 0.05);
 
         Database db = arcadeDbService.getDatabase();
 
         // 1. Quét sơ bộ và xóa sạch dữ liệu cũ của các file sắp quét để tránh trùng lặp dữ liệu
-        listener.onProgress("Đang dọn dẹp dữ liệu cũ của các file...", 0.1);
+        listener.onProgress("Cleaning up old data for target files...", 0.1);
         db.transaction(() -> {
             for (Path file : allFiles) {
                 String filepath = file.toAbsolutePath().toString();
-                // Thực thi lệnh xóa các Node Class/Interface cũ liên kết với file này
-                db.command("cypher", "MATCH (c {filepath: $filepath}) DETACH DELETE c", Map.of("filepath", filepath));
+                Map<String, Object> params = Map.of("filepath", filepath);
+                db.command("sql", "DELETE FROM Class WHERE filepath = :filepath", params);
+                db.command("sql", "DELETE FROM Interface WHERE filepath = :filepath", params);
+                db.command("sql", "DELETE FROM Method WHERE filepath = :filepath", params);
+                db.command("sql", "DELETE FROM Table WHERE filepath = :filepath", params);
             }
         });
 
@@ -97,7 +100,7 @@ public class CodeIndexerService {
             String filepath = file.toAbsolutePath().toString();
             count++;
             double progress = 0.1 + ((double) count / totalFiles) * 0.8;
-            listener.onProgress("Đang phân tích (" + count + "/" + totalFiles + "): " + file.getFileName(), progress);
+            listener.onProgress("Analyzing (" + count + "/" + totalFiles + "): " + file.getFileName(), progress);
 
             String ext = getFileExtension(file);
             SourceCodeIndexer indexer = findIndexer(ext);
@@ -111,15 +114,15 @@ public class CodeIndexerService {
                         }
                     });
                 } catch (Exception e) {
-                    log.error("Sai sót khi phân tích file {}: {}", filepath, e.getMessage());
+                    log.error("Error analyzing file {}: {}", filepath, e.getMessage());
                     // Tiếp tục quét các file khác, không để 1 file lỗi dừng cả hệ thống
                 }
             }
         }
 
         // 3. Giải quyết liên kết lời gọi hàm (CALLS) - Best-effort resolution
-        listener.onProgress("Đang thiết lập liên kết lời gọi hàm (CALLS)...", 0.95);
-        log.info("Đang xử lý {} liên kết CALLS tích lũy...", pendingMethodCalls.size());
+        listener.onProgress("Establishing method call links (CALLS)...", 0.95);
+        log.info("Processing {} accumulated CALLS links...", pendingMethodCalls.size());
         db.transaction(() -> {
             for (MethodCallInfo call : pendingMethodCalls) {
                 db.command("cypher",
@@ -131,9 +134,9 @@ public class CodeIndexerService {
             }
         });
 
-        listener.onProgress("Quá trình quét hoàn tất thành công!", 1.0);
+        listener.onProgress("Scan completed successfully!", 1.0);
         listener.onComplete(totalFiles);
-        log.info("Index đồ thị hoàn thành. Đã xử lý {} file.", totalFiles);
+        log.info("Graph indexing completed. Processed {} files.", totalFiles);
     }
 
     private boolean isSupportedFile(Path path) {

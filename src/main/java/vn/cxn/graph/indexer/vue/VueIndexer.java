@@ -1,4 +1,4 @@
-package vn.cxn.graph.indexer.typescript;
+package vn.cxn.graph.indexer.vue;
 
 import com.arcadedb.database.Database;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -13,121 +13,171 @@ import vn.cxn.graph.indexer.antlr.typescript.*;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Bộ quét mã nguồn dành cho ngôn ngữ TypeScript/JavaScript sử dụng bộ Parser
- * ANTLR4 thuần Java.
+ * Bộ quét mã nguồn dành cho framework Vue.js (Single File Component - .vue)
+ * sử dụng Jsoup/String-Manipulation kết hợp với bộ Parser ANTLR4 TypeScript.
  */
 @Component
-public class TypeScriptIndexer implements SourceCodeIndexer {
+public class VueIndexer implements SourceCodeIndexer {
 
-    private static final Logger log = LoggerFactory.getLogger(TypeScriptIndexer.class);
+    private static final Logger log = LoggerFactory.getLogger(VueIndexer.class);
+
+    private static final Set<String> HTML_TAGS = new HashSet<>(Arrays.asList(
+        "html", "body", "head", "link", "meta", "script", "style", "title",
+        "div", "span", "p", "a", "img", "button", "input", "label", "ul", "li", "ol",
+        "table", "tr", "td", "th", "thead", "tbody", "tfoot", "form", "iframe",
+        "h1", "h2", "h3", "h4", "h5", "h6", "section", "header", "footer", "nav", "aside", "main",
+        "template", "slot", "transition", "keep-alive", "router-view", "router-link",
+        "svg", "path", "circle", "rect", "line", "g", "defs", "use",
+        "br", "hr", "select", "option", "textarea", "strong", "em", "i", "b", "u", "small", "pre", "code"
+    ));
+
+    private static final Pattern TAG_PATTERN = Pattern.compile("<\\s*([A-Za-z0-9-]+)");
 
     @Override
     public boolean supports(String fileExtension) {
-        return "ts".equalsIgnoreCase(fileExtension) ||
-                "js".equalsIgnoreCase(fileExtension) ||
-                "tsx".equalsIgnoreCase(fileExtension) ||
-                "jsx".equalsIgnoreCase(fileExtension);
+        return "vue".equalsIgnoreCase(fileExtension);
     }
 
     @Override
     public void index(Path file, Database db, List<MethodCallInfo> pendingMethodCalls) throws Exception {
         String targetFilepath = file.toAbsolutePath().toString();
-        log.info("Starting TS/JS scan: {}", targetFilepath);
+        log.info("Starting Vue SFC scan: {}", targetFilepath);
 
-        TypeScriptParseResult result = new TypeScriptParseResult();
-        result.classes = new ArrayList<>();
-        result.methods = new ArrayList<>();
-        result.imports = new ArrayList<>();
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        String filename = file.getFileName().toString();
+        String componentName = filename.substring(0, filename.lastIndexOf('.'));
 
-        try {
-            TypeScriptLexer lexer = new TypeScriptLexer(CharStreams.fromPath(file, StandardCharsets.UTF_8));
-            CommonTokenStream tokens = new CommonTokenStream(lexer);
-            TypeScriptParser parser = new TypeScriptParser(tokens);
-            ParseTree tree = parser.program();
+        // ---- 1. Bóc tách Script block và phân tích bằng ANTLR4 TypeScript ----
+        String scriptContent = extractScriptContent(content);
+        TypeScriptParseResult parseResult = new TypeScriptParseResult();
+        parseResult.classes = new ArrayList<>();
+        parseResult.methods = new ArrayList<>();
+        parseResult.imports = new ArrayList<>();
 
-            ParseTreeWalker walker = new ParseTreeWalker();
-            TypeScriptParserBaseListener listener = createListener(result);
-            walker.walk(listener, tree);
-        } catch (Exception e) {
-            log.error("Error parsing TS/JS file {}: {}", targetFilepath, e.getMessage(), e);
-            result.error = e.getMessage();
-            return;
+        if (!scriptContent.trim().isEmpty()) {
+            try {
+                TypeScriptLexer lexer = new TypeScriptLexer(CharStreams.fromString(scriptContent));
+                CommonTokenStream tokens = new CommonTokenStream(lexer);
+                TypeScriptParser parser = new TypeScriptParser(tokens);
+                ParseTree tree = parser.program();
+
+                ParseTreeWalker walker = new ParseTreeWalker();
+                TypeScriptParserBaseListener listener = createListener(parseResult, componentName);
+                walker.walk(listener, tree);
+            } catch (Exception e) {
+                log.error("Error parsing script in file {}: {}", targetFilepath, e.getMessage());
+                parseResult.error = e.getMessage();
+            }
         }
 
-        // Import dữ liệu vào ArcadeDB
-        importToDatabase(result, targetFilepath, db, pendingMethodCalls);
+        // ---- 2. Bóc tách Template block và tìm các Component lồng nhau ----
+        String templateContent = extractTemplateContent(content);
+        Set<String> renderedComponents = extractRenderedComponents(templateContent);
+
+        // ---- 3. Lưu thông tin vào Database ----
+        importToDatabase(parseResult, renderedComponents, componentName, targetFilepath, db, pendingMethodCalls);
     }
 
-    /*
-     * -------------------------------------------------------------
-     * Helper: extract a callable name from an expression (or a list of them)
-     * -------------------------------------------------------------
-     */
-    /**
-     * Returns a simple identifier (e.g. foo, obj.prop) from a
-     * SingleExpressionContext.
-     */
+    private String extractScriptContent(String content) {
+        int scriptStart = content.indexOf("<script");
+        if (scriptStart == -1) return "";
+        int closeTagEnd = content.indexOf(">", scriptStart);
+        if (closeTagEnd == -1) return "";
+        int scriptEnd = content.indexOf("</script>", closeTagEnd);
+        if (scriptEnd == -1) return "";
+        return content.substring(closeTagEnd + 1, scriptEnd);
+    }
+
+    private String extractTemplateContent(String content) {
+        int templateStart = content.indexOf("<template");
+        if (templateStart == -1) return "";
+        int closeTagEnd = content.indexOf(">", templateStart);
+        if (closeTagEnd == -1) return "";
+        int templateEnd = content.lastIndexOf("</template>");
+        if (templateEnd == -1 || templateEnd < closeTagEnd) return "";
+        return content.substring(closeTagEnd + 1, templateEnd);
+    }
+
+    private Set<String> extractRenderedComponents(String templateContent) {
+        Set<String> components = new HashSet<>();
+        if (templateContent.isEmpty()) return components;
+
+        Matcher matcher = TAG_PATTERN.matcher(templateContent);
+        while (matcher.find()) {
+            String tagName = matcher.group(1);
+            if (HTML_TAGS.contains(tagName.toLowerCase())) {
+                continue;
+            }
+            // Quy đổi kebab-case (ví dụ: my-component) sang PascalCase (MyComponent)
+            if (tagName.contains("-")) {
+                tagName = kebabToPascal(tagName);
+            }
+            components.add(tagName);
+        }
+        return components;
+    }
+
+    private String kebabToPascal(String kebab) {
+        if (kebab == null || kebab.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        boolean nextUpper = true;
+        for (char c : kebab.toCharArray()) {
+            if (c == '-') {
+                nextUpper = true;
+            } else {
+                if (nextUpper) {
+                    sb.append(Character.toUpperCase(c));
+                    nextUpper = false;
+                } else {
+                    sb.append(c);
+                }
+            }
+        }
+        return sb.toString();
+    }
+
     private String getCalledNameSingle(TypeScriptParser.SingleExpressionContext ctx) {
         if (ctx instanceof TypeScriptParser.IdentifierExpressionContext ident) {
             return ident.identifierName().getText();
         } else if (ctx instanceof TypeScriptParser.MemberDotExpressionContext member) {
             return member.identifierName().getText();
         } else if (ctx instanceof TypeScriptParser.OptionalChainExpressionContext opt) {
-            // opt.singleExpression() may be a single context or a list – delegate to the
-            // overloaded method
-            Object inner = opt.singleExpression();
-            String name = getCalledName(inner);
-            return name != null ? name : null;
-        }
-        return null; // not a simple call we can track
-    }
-
-    /**
-     * Accepts either a single {@link SingleExpressionContext} or a {@link List}
-     * (as returned by some ANTLR rules) and returns the first recognizable
-     * identifier found.
-     */
-    private String getCalledName(Object exprOrList) {
-        if (exprOrList == null) {
-            return null;
-        }
-        if (exprOrList instanceof List) {
-            for (Object o : (List<?>) exprOrList) {
-                if (o instanceof TypeScriptParser.SingleExpressionContext singleExpressionContext) {
-                    String name = getCalledNameSingle(singleExpressionContext);
-                    if (name != null) {
-                        return name;
-                    }
-                }
-            }
-            return null;
-        } else if (exprOrList instanceof TypeScriptParser.SingleExpressionContext singleExpressionContext) {
-            return getCalledNameSingle(singleExpressionContext);
+            return getCalledName(opt.singleExpression());
         }
         return null;
     }
 
-    /*
-     * -------------------------------------------------------------
-     * Listener implementation
-     * -------------------------------------------------------------
-     */
-    private TypeScriptParserBaseListener createListener(TypeScriptParseResult result) {
+    private String getCalledName(Object exprOrList) {
+        if (exprOrList == null) return null;
+        if (exprOrList instanceof List) {
+            for (Object o : (List<?>) exprOrList) {
+                if (o instanceof TypeScriptParser.SingleExpressionContext sec) {
+                    String name = getCalledNameSingle(sec);
+                    if (name != null) return name;
+                }
+            }
+            return null;
+        } else if (exprOrList instanceof TypeScriptParser.SingleExpressionContext sec) {
+            return getCalledNameSingle(sec);
+        }
+        return null;
+    }
+
+    private TypeScriptParserBaseListener createListener(TypeScriptParseResult result, String componentName) {
         return new TypeScriptParserBaseListener() {
-            private String currentClass = null;
+            private String currentClass = componentName;
             private TypeScriptMethodInfo currentMethod = null;
 
             @Override
             public void enterClassDeclaration(TypeScriptParser.ClassDeclarationContext ctx) {
-                if (ctx.identifier() == null) {
-                    return;
-                }
+                if (ctx.identifier() == null) return;
                 String className = ctx.identifier().getText();
                 List<String> bases = new ArrayList<>();
                 if (ctx.classHeritage() != null && ctx.classHeritage().classExtendsClause() != null) {
@@ -136,21 +186,19 @@ public class TypeScriptIndexer implements SourceCodeIndexer {
                 TypeScriptClassInfo classInfo = new TypeScriptClassInfo();
                 classInfo.name = className;
                 classInfo.bases = bases;
-                classInfo.description = ""; // could be filled from JSDoc if needed
+                classInfo.description = "";
                 result.classes.add(classInfo);
                 currentClass = className;
             }
 
             @Override
             public void exitClassDeclaration(TypeScriptParser.ClassDeclarationContext ctx) {
-                currentClass = null;
+                currentClass = componentName;
             }
 
             @Override
             public void enterMethodDeclarationExpression(TypeScriptParser.MethodDeclarationExpressionContext ctx) {
-                if (ctx.propertyName() == null) {
-                    return;
-                }
+                if (ctx.propertyName() == null) return;
                 String methodName = ctx.propertyName().getText();
                 String fqName = (currentClass != null ? currentClass + "." : "") + methodName;
 
@@ -171,9 +219,7 @@ public class TypeScriptIndexer implements SourceCodeIndexer {
 
             @Override
             public void enterFunctionDeclaration(TypeScriptParser.FunctionDeclarationContext ctx) {
-                if (ctx.identifier() == null) {
-                    return;
-                }
+                if (ctx.identifier() == null) return;
                 String funcName = ctx.identifier().getText();
                 String fqName = (currentClass != null ? currentClass + "." : "") + funcName;
 
@@ -194,10 +240,7 @@ public class TypeScriptIndexer implements SourceCodeIndexer {
 
             @Override
             public void enterArgumentsExpression(TypeScriptParser.ArgumentsExpressionContext ctx) {
-                if (currentMethod == null) {
-                    return;
-                }
-                // ctx.singleExpression() returns the list of expressions inside the call
+                if (currentMethod == null) return;
                 String called = getCalledName(ctx.singleExpression());
                 if (called != null && !called.equals(currentMethod.name)) {
                     currentMethod.calls.add(called);
@@ -206,10 +249,7 @@ public class TypeScriptIndexer implements SourceCodeIndexer {
 
             @Override
             public void enterNewExpression(TypeScriptParser.NewExpressionContext ctx) {
-                if (currentMethod == null) {
-                    return;
-                }
-                // NewExpression also contains a list of expressions (the constructed type)
+                if (currentMethod == null) return;
                 String called = getCalledName(ctx.singleExpression());
                 if (called != null && !called.equals(currentMethod.name)) {
                     currentMethod.calls.add(called);
@@ -219,9 +259,7 @@ public class TypeScriptIndexer implements SourceCodeIndexer {
             @Override
             public void enterImportStatement(TypeScriptParser.ImportStatementContext ctx) {
                 TypeScriptParser.ImportFromBlockContext fromBlock = ctx.importFromBlock();
-                if (fromBlock == null) {
-                    return;
-                }
+                if (fromBlock == null) return;
 
                 String moduleSpecifier = "";
                 if (fromBlock.importFrom() != null && fromBlock.importFrom().StringLiteral() != null) {
@@ -229,9 +267,7 @@ public class TypeScriptIndexer implements SourceCodeIndexer {
                 } else if (fromBlock.StringLiteral() != null) {
                     moduleSpecifier = fromBlock.StringLiteral().getText();
                 }
-                if (moduleSpecifier.isEmpty()) {
-                    return;
-                }
+                if (moduleSpecifier.isEmpty()) return;
                 if (moduleSpecifier.startsWith("'") || moduleSpecifier.startsWith("\"")) {
                     moduleSpecifier = moduleSpecifier.substring(1, moduleSpecifier.length() - 1);
                 }
@@ -267,9 +303,7 @@ public class TypeScriptIndexer implements SourceCodeIndexer {
                     TypeScriptParser.ImportModuleItemsContext items = fromBlock.importModuleItems();
                     if (items.importAliasName() != null) {
                         for (TypeScriptParser.ImportAliasNameContext item : items.importAliasName()) {
-                            if (item.moduleExportName() == null) {
-                                continue;
-                            }
+                            if (item.moduleExportName() == null) continue;
                             String origName = item.moduleExportName().getText();
                             String aliasName = origName;
                             if (item.importedBinding() != null) {
@@ -286,32 +320,35 @@ public class TypeScriptIndexer implements SourceCodeIndexer {
         };
     }
 
-    /*
-     * -------------------------------------------------------------
-     * Import parsed data into ArcadeDB
-     * -------------------------------------------------------------
-     */
-    private void importToDatabase(TypeScriptParseResult result, String filepath, Database db,
-            List<MethodCallInfo> pendingMethodCalls) {
-        // ---- A. Import Classes -------------------------------------------------
+    private void importToDatabase(TypeScriptParseResult result, Set<String> renderedComponents, String componentName,
+                                   String filepath, Database db, List<MethodCallInfo> pendingMethodCalls) {
+        
+        // A. Tạo nút Class đại diện cho Component Vue này
+        db.command("cypher",
+                "MERGE (c:Class {name: $name}) " +
+                "SET c.package = 'vue_component', c.filepath = $filepath, c.description = $desc",
+                Map.of("name", componentName,
+                        "filepath", filepath,
+                        "desc", "Vue Single File Component"));
+
+        // B. Lưu các Class khai báo bên trong (nếu có)
         if (result.classes != null) {
             for (TypeScriptClassInfo clazz : result.classes) {
+                if (clazz.name.equals(componentName)) continue; // đã lưu ở trên
                 db.command("cypher",
                         "MERGE (c:Class {name: $name}) " +
-                                "SET c.package = $pkg, c.filepath = $filepath, c.description = $desc",
+                        "SET c.package = 'vue_component', c.filepath = $filepath, c.description = $desc",
                         Map.of("name", clazz.name,
-                                "pkg", "js_module",
                                 "filepath", filepath,
                                 "desc", clazz.description != null ? clazz.description : ""));
 
-                // EXTENDS (inheritance)
                 if (clazz.bases != null) {
                     for (String baseName : clazz.bases) {
                         db.command("cypher",
                                 "MERGE (parent:Class {name: $superName}) " +
-                                        "WITH parent " +
-                                        "MATCH (c:Class {name: $className, filepath: $filepath}) " +
-                                        "MERGE (c)-[:EXTENDS]->(parent)",
+                                "WITH parent " +
+                                "MATCH (c:Class {name: $className, filepath: $filepath}) " +
+                                "MERGE (c)-[:EXTENDS]->(parent)",
                                 Map.of("superName", baseName,
                                         "className", clazz.name,
                                         "filepath", filepath));
@@ -320,47 +357,25 @@ public class TypeScriptIndexer implements SourceCodeIndexer {
             }
         }
 
-        // ---- B. Import Methods / Functions ------------------------------------
+        // C. Lưu các Methods / Functions
         if (result.methods != null) {
             for (TypeScriptMethodInfo method : result.methods) {
-                String parentClass = method.className;
-                String fqName = method.fqName;
+                String parentClass = method.className != null ? method.className : componentName;
+                String fqName = method.fqName.contains(".") ? method.fqName : parentClass + "." + method.name;
                 String desc = method.description != null ? method.description : "";
 
-                if (parentClass != null && !parentClass.isEmpty()) {
-                    // Method belonging to a class
-                    db.command("cypher",
-                            "MATCH (c:Class {name: $className, filepath: $filepath}) " +
-                                    "MERGE (m:Method {name: $fqMethodName}) " +
-                                    "SET m.shortName = $shortName, m.className = $className, m.description = $desc, m.filepath = $filepath " +
-                                    "MERGE (c)-[:CONTAINS]->(m)",
-                            Map.of("className", parentClass,
-                                    "filepath", filepath,
-                                    "fqMethodName", fqName,
-                                    "shortName", method.name,
-                                    "desc", desc));
-                } else {
-                    // Stand‑alone function → treat as belonging to a synthetic “module” class
-                    String filename = new File(filepath).getName();
-                    String moduleClassName = filename.substring(0, filename.lastIndexOf('.'));
+                db.command("cypher",
+                        "MERGE (c:Class {name: $className, filepath: $filepath}) " +
+                        "WITH c " +
+                        "MERGE (m:Method {name: $fqMethodName}) " +
+                        "SET m.shortName = $shortName, m.className = $className, m.description = $desc, m.filepath = $filepath " +
+                        "MERGE (c)-[:CONTAINS]->(m)",
+                        Map.of("className", parentClass,
+                                "filepath", filepath,
+                                "fqMethodName", fqName,
+                                "shortName", method.name,
+                                "desc", desc));
 
-                    db.command("cypher",
-                            "MERGE (c:Class {name: $moduleClassName}) " +
-                                    "SET c.package = 'js_module', c.filepath = $filepath, c.description = 'JS module container' "
-                                    +
-                                    "WITH c " +
-                                    "MERGE (m:Method {name: $fqMethodName}) " +
-                                    "SET m.shortName = $shortName, m.className = $moduleClassName, m.description = $desc, m.filepath = $filepath "
-                                    +
-                                    "MERGE (c)-[:CONTAINS]->(m)",
-                            Map.of("moduleClassName", moduleClassName,
-                                    "filepath", filepath,
-                                    "fqMethodName", fqName,
-                                    "shortName", method.name,
-                                    "desc", desc));
-                }
-
-                // Collect method calls
                 if (method.calls != null) {
                     for (String calledName : method.calls) {
                         if (!calledName.equals(method.name)) {
@@ -371,7 +386,7 @@ public class TypeScriptIndexer implements SourceCodeIndexer {
             }
         }
 
-        // ---- C. Import Dependencies (imports → INJECTS/DEPENDS) ---------------
+        // D. Lưu Dependencies từ Import block (INJECTS)
         if (result.imports != null) {
             for (TypeScriptImportInfo imp : result.imports) {
                 String importName = imp.name;
@@ -379,23 +394,35 @@ public class TypeScriptIndexer implements SourceCodeIndexer {
                         ? importName.substring(importName.lastIndexOf('.') + 1)
                         : importName;
 
+                // Bỏ qua các import thư viện node_modules dạng css hoặc json
+                if (importName.endsWith(".css") || importName.endsWith(".json")) continue;
+
                 db.command("cypher",
                         "MERGE (dep:Class {name: $depName}) " +
-                                "WITH dep " +
-                                "MATCH (c:Class {filepath: $filepath}) " +
-                                "MERGE (c)-[:INJECTS {fieldName: $fieldName, via: 'import'}]->(dep)",
+                        "WITH dep " +
+                        "MATCH (c:Class {name: $className, filepath: $filepath}) " +
+                        "MERGE (c)-[:INJECTS {fieldName: $fieldName, via: 'import'}]->(dep)",
                         Map.of("depName", depName,
+                                "className", componentName,
                                 "fieldName", imp.asname != null ? imp.asname : depName,
                                 "filepath", filepath));
             }
         }
+
+        // E. Lưu các Component được vẽ trong Template (INJECTS via template)
+        for (String childComp : renderedComponents) {
+            if (childComp.equals(componentName)) continue;
+            db.command("cypher",
+                    "MERGE (dep:Class {name: $depName}) " +
+                    "WITH dep " +
+                    "MATCH (c:Class {name: $className, filepath: $filepath}) " +
+                    "MERGE (c)-[:INJECTS {fieldName: $depName, via: 'template'}]->(dep)",
+                    Map.of("depName", childComp,
+                            "className", componentName,
+                            "filepath", filepath));
+        }
     }
 
-    /*
-     * -------------------------------------------------------------
-     * JSON Mapping POJOs
-     * -------------------------------------------------------------
-     */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TypeScriptParseResult {
         public List<TypeScriptClassInfo> classes;

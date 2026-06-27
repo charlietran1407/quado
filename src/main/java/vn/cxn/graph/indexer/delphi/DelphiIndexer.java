@@ -37,7 +37,7 @@ public class DelphiIndexer implements SourceCodeIndexer {
     @Override
     public void index(Path file, Database db, List<MethodCallInfo> pendingMethodCalls) throws Exception {
         String targetFilepath = file.toAbsolutePath().toString();
-        log.info("Bắt đầu quét file Delphi: {}", targetFilepath);
+        log.info("Starting Delphi scan: {}", targetFilepath);
 
         String content = Files.readString(file, StandardCharsets.UTF_8);
 
@@ -182,7 +182,7 @@ public class DelphiIndexer implements SourceCodeIndexer {
                                 +
                                 "WITH c " +
                                 "MERGE (m:Method {name: $fqName}) " +
-                                "SET m.shortName = $shortName, m.className = $className, m.description = 'Delphi Method' "
+                                "SET m.shortName = $shortName, m.className = $className, m.description = 'Delphi Method', m.filepath = $filepath "
                                 +
                                 "MERGE (c)-[:CONTAINS]->(m)",
                         Map.of("className", className, "filepath", filepath, "fqName", methodFqName, "shortName",
@@ -192,7 +192,7 @@ public class DelphiIndexer implements SourceCodeIndexer {
                 db.command("cypher",
                         "MATCH (c:Class {name: $unitName, filepath: $filepath}) " +
                                 "MERGE (m:Method {name: $fqName}) " +
-                                "SET m.shortName = $shortName, m.className = $unitName, m.description = 'Delphi Procedure/Function' "
+                                "SET m.shortName = $shortName, m.className = $unitName, m.description = 'Delphi Procedure/Function', m.filepath = $filepath "
                                 +
                                 "MERGE (c)-[:CONTAINS]->(m)",
                         Map.of("unitName", unitName, "filepath", filepath, "fqName", methodFqName, "shortName",

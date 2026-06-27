@@ -54,10 +54,10 @@ public class MainController implements ApplicationListener<WebServerInitializedE
 
     @FXML
     public void initialize() {
-        appendLog("Hệ thống khởi chạy thành công. Sẵn sàng phục vụ Đồng chí Sáng lập.");
+        appendLog("System initialized successfully. Ready to serve.");
         mcpStatusLabel.setText("ONLINE");
         mcpStatusLabel.getStyleClass().setAll("status-badge-online");
-        btnToggleMcp.setText("Tắt MCP Server (SSE)");
+        btnToggleMcp.setText("Disable MCP Server (SSE)");
         mcpUrlField.setText("http://localhost:" + localServerPort + "/mcp");
     }
 
@@ -68,18 +68,18 @@ public class MainController implements ApplicationListener<WebServerInitializedE
             if (mcpUrlField != null) {
                 mcpUrlField.setText("http://localhost:" + localServerPort + "/mcp");
             }
-            appendLog("Dịch vụ MCP Server đang lắng nghe qua giao thức Streamable HTTP trên cổng: " + localServerPort);
+            appendLog("MCP Server is listening via SSE on port: " + localServerPort);
         });
     }
 
     @FXML
     private void handleBrowse(ActionEvent event) {
         DirectoryChooser directoryChooser = new DirectoryChooser();
-        directoryChooser.setTitle("Chọn Thư Mục Mã Nguồn Java (src/main)");
+        directoryChooser.setTitle("Select Source Directory");
         File selectedDirectory = directoryChooser.showDialog(new Stage());
         if (selectedDirectory != null) {
             pathField.setText(selectedDirectory.getAbsolutePath());
-            appendLog("Đồng chí đã chọn thư mục mục tiêu: " + selectedDirectory.getAbsolutePath());
+            appendLog("Selected target directory: " + selectedDirectory.getAbsolutePath());
         }
     }
 
@@ -87,27 +87,27 @@ public class MainController implements ApplicationListener<WebServerInitializedE
     private void handleScan(ActionEvent event) {
         String path = pathField.getText();
         if (path == null || path.trim().isEmpty()) {
-            showAlert("Sai sót cấu hình", "Vui lòng chọn đường dẫn thư mục nguồn trước khi khởi động quét.");
+            showAlert("Configuration Error", "Please select a source directory before starting the scan.");
             return;
         }
 
         File projectDir = new File(path);
         if (!projectDir.exists() || !projectDir.isDirectory()) {
-            showAlert("Sai sót đường dẫn", "Đường dẫn không hợp lệ hoặc không phải là một thư mục chính thống.");
+            showAlert("Invalid Path", "The selected path is invalid or is not a directory.");
             return;
         }
 
         btnScan.setDisable(true);
         btnClean.setDisable(true);
         progressBar.setProgress(0.0);
-        statusText.setText("Trạng thái: Đang phân tích mã nguồn...");
+        statusText.setText("Status: Analyzing source code...");
 
         codeIndexerService.scanProjectAsync(projectDir, new CodeIndexerService.ProgressListener() {
             @Override
             public void onProgress(String message, double progress) {
                 Platform.runLater(() -> {
                     progressBar.setProgress(progress);
-                    statusText.setText("Tiến trình: " + message);
+                    statusText.setText("Progress: " + message);
                     appendLog(message);
                 });
             }
@@ -118,10 +118,10 @@ public class MainController implements ApplicationListener<WebServerInitializedE
                     btnScan.setDisable(false);
                     btnClean.setDisable(false);
                     progressBar.setProgress(1.0);
-                    statusText.setText("Trạng thái: Hoàn thành quét " + totalFiles + " file.");
-                    appendLog(">>> TRIỆT ĐỂ HOÀN THÀNH NHIỆM VỤ QUÉT MÃ NGUỒN. TỔNG SỐ FILE XỬ LÝ: " + totalFiles);
-                    showAlert("Báo cáo hoàn thành",
-                            "Đã quét và cập nhật bản đồ quan hệ đồ thị thành công cho " + totalFiles + " file!");
+                    statusText.setText("Status: Completed scanning " + totalFiles + " files.");
+                    appendLog(">>> INDEXING COMPLETED. TOTAL FILES PROCESSED: " + totalFiles);
+                    showAlert("Success",
+                            "Successfully scanned and updated relationship graph for " + totalFiles + " files!");
                 });
             }
 
@@ -131,9 +131,9 @@ public class MainController implements ApplicationListener<WebServerInitializedE
                     btnScan.setDisable(false);
                     btnClean.setDisable(false);
                     progressBar.setProgress(0.0);
-                    statusText.setText("Trạng thái: Gặp sai sót.");
-                    appendLog(">>> CẢNH BÁO SAI SÓT PHÁT SINH: " + t.getMessage());
-                    showAlert("Sai sót hệ thống", "Có phần tử lỗi phát sinh trong quá trình quét: " + t.getMessage());
+                    statusText.setText("Status: Error encountered.");
+                    appendLog(">>> ERROR ENCOUNTERED: " + t.getMessage());
+                    showAlert("System Error", "An error occurred during indexing: " + t.getMessage());
                 });
             }
         });
@@ -142,20 +142,20 @@ public class MainController implements ApplicationListener<WebServerInitializedE
     @FXML
     private void handleClean(ActionEvent event) {
         Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmAlert.setTitle("Xác nhận hành động");
-        confirmAlert.setHeaderText("Quyết định dọn dẹp cơ sở dữ liệu");
-        confirmAlert.setContentText("Hành động này sẽ dọn sạch toàn bộ dữ liệu đồ thị cũ. Đồng chí có chắc chắn?");
+        confirmAlert.setTitle("Confirm Action");
+        confirmAlert.setHeaderText("Clean Graph Database");
+        confirmAlert.setContentText("This will clean all existing graph data. Are you sure you want to proceed?");
 
         confirmAlert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
                 try {
                     arcadeDbService.cleanDatabase();
-                    appendLog(">>> BÀI TRỪ TOÀN BỘ PHẦN TỬ CŨ TRONG ĐỒ THỊ DATABASE THÀNH CÔNG.");
-                    statusText.setText("Trạng thái: Đã làm sạch DB.");
-                    showAlert("Thành công", "Đồ thị cơ sở dữ liệu đã được dọn sạch hoàn toàn.");
+                    appendLog(">>> DATABASE CLEANED SUCCESSFULLY.");
+                    statusText.setText("Status: Database cleaned.");
+                    showAlert("Success", "The graph database has been cleaned successfully.");
                 } catch (Exception e) {
-                    appendLog(">>> THẤT BẠI KHI DỌN DẸP DB: " + e.getMessage());
-                    showAlert("Sai sót dọn dẹp", "Không thể làm sạch DB: " + e.getMessage());
+                    appendLog(">>> FAILED TO CLEAN DATABASE: " + e.getMessage());
+                    showAlert("Clean Error", "Failed to clean database: " + e.getMessage());
                 }
             }
         });
@@ -167,14 +167,14 @@ public class MainController implements ApplicationListener<WebServerInitializedE
             mcpServerRunning = false;
             mcpStatusLabel.setText("OFFLINE");
             mcpStatusLabel.getStyleClass().setAll("status-badge-offline");
-            btnToggleMcp.setText("Bật MCP Server (SSE)");
-            appendLog(">>> Tạm ngắt dịch vụ MCP Server (Mô phỏng ngắt kết nối).");
+            btnToggleMcp.setText("Enable MCP Server (SSE)");
+            appendLog(">>> Disconnected MCP Server (Simulated).");
         } else {
             mcpServerRunning = true;
             mcpStatusLabel.setText("ONLINE");
             mcpStatusLabel.getStyleClass().setAll("status-badge-online");
-            btnToggleMcp.setText("Tắt MCP Server (SSE)");
-            appendLog(">>> Kích hoạt lại dịch vụ MCP Server tại port " + localServerPort);
+            btnToggleMcp.setText("Disable MCP Server (SSE)");
+            appendLog(">>> Re-activated MCP Server on port " + localServerPort);
         }
     }
 
