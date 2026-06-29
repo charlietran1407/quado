@@ -9,14 +9,20 @@ import javafx.stage.Stage;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 
+import java.util.List;
+
 public class App extends Application {
     private ConfigurableApplicationContext springContext;
     private Parent rootNode;
 
     @Override
     public void init() throws Exception {
-        // Khởi chạy Spring Boot context trong luồng init của JavaFX
-        springContext = new SpringApplicationBuilder(SpringApp.class).run();
+        // Lấy lại CLI args từ JavaFX runtime để truyền vào Spring
+        // (VD: --arcadedb.path=./my-db sẽ được Spring nhận và override application.properties)
+        List<String> rawArgs = getParameters().getRaw();
+        String[] args = rawArgs.toArray(String[]::new);
+
+        springContext = new SpringApplicationBuilder(SpringApp.class).run(args);
         
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/vn/cxn/graph/ui/main.fxml"));
         // Cấu hình để Spring Boot quản lý và tự động inject controller
