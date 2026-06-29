@@ -2,6 +2,7 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ProgressBar?>
 <?import javafx.scene.control.TextArea?>
@@ -37,26 +38,39 @@
     <!-- Operations & Control Pane -->
     <HBox spacing="15.0">
         <!-- Indexing Actions -->
-        <TitledPane animated="false" collapsible="false" prefWidth="450.0" styleClass="action-pane" text="INDEXING CONTROL" HBox.hgrow="ALWAYS">
+        <TitledPane animated="false" collapsible="false" prefWidth="290.0" styleClass="action-pane" text="INDEXING CONTROL" HBox.hgrow="ALWAYS">
             <VBox spacing="12.0">
                 <HBox spacing="10.0">
-                    <Button fx:id="btnScan" onAction="#handleScan" prefWidth="140.0" styleClass="btn-primary" text="Start Indexing" />
+                    <Button fx:id="btnScan" onAction="#handleScan" prefWidth="130.0" styleClass="btn-primary" text="Start Indexing" />
                     <Button fx:id="btnClean" onAction="#handleClean" prefWidth="120.0" styleClass="btn-danger" text="Clean Graph DB" />
                 </HBox>
                 <Label fx:id="statusText" styleClass="status-text" text="Status: Ready." />
-                <ProgressBar fx:id="progressBar" prefHeight="15.0" prefWidth="400.0" progress="0.0" styleClass="progress-bar" />
+                <ProgressBar fx:id="progressBar" prefHeight="15.0" prefWidth="260.0" progress="0.0" styleClass="progress-bar" />
+            </VBox>
+        </TitledPane>
+
+        <!-- AI Knowledge Enrichment -->
+        <TitledPane animated="false" collapsible="false" prefWidth="290.0" styleClass="action-pane" text="AI KNOWLEDGE RICHNESS" HBox.hgrow="ALWAYS">
+            <VBox spacing="12.0">
+                <HBox spacing="10.0">
+                    <Button fx:id="btnAiAnalyze" onAction="#handleAiAnalyze" prefWidth="140.0" styleClass="btn-secondary" text="Start AI Analysis" />
+                    <Button fx:id="btnStopAi" disable="true" onAction="#handleStopAi" prefWidth="110.0" styleClass="btn-danger" text="Stop" />
+                </HBox>
+                <CheckBox fx:id="chkDebug" text="Enable AI Debug Log" styleClass="status-text" />
+                <Label fx:id="aiStatusText" styleClass="status-text" text="Status: Idle." />
+                <ProgressBar fx:id="aiProgressBar" prefHeight="15.0" prefWidth="260.0" progress="0.0" styleClass="progress-bar" />
             </VBox>
         </TitledPane>
  
         <!-- MCP Server Actions -->
-        <TitledPane animated="false" collapsible="false" prefWidth="450.0" styleClass="action-pane" text="MCP SERVER CONTROL" HBox.hgrow="ALWAYS">
+        <TitledPane animated="false" collapsible="false" prefWidth="290.0" styleClass="action-pane" text="MCP SERVER CONTROL" HBox.hgrow="ALWAYS">
             <VBox spacing="12.0">
                 <HBox alignment="CENTER_LEFT" spacing="10.0">
-                    <Button fx:id="btnToggleMcp" onAction="#handleToggleMcp" prefWidth="180.0" styleClass="btn-secondary" text="Disable MCP Server (SSE)" />
+                    <Button fx:id="btnToggleMcp" onAction="#handleToggleMcp" prefWidth="170.0" styleClass="btn-secondary" text="Disable MCP Server (SSE)" />
                     <Label fx:id="mcpStatusLabel" styleClass="status-badge-online" text="ONLINE" />
                 </HBox>
                 <Label styleClass="info-label" text="AI Clients can connect via SSE URL:" />
-                <TextField fx:id="mcpUrlField" editable="false" styleClass="mcp-url-field" text="http://localhost:3000/sse" />
+                <TextField fx:id="mcpUrlField" editable="false" styleClass="mcp-url-field" text="http://localhost:3000/mcp" />
             </VBox>
         </TitledPane>
     </HBox>

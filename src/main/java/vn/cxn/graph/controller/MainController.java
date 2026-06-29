@@ -13,6 +13,7 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Controller;
 import vn.cxn.graph.service.ArcadeDbService;
 import vn.cxn.graph.service.CodeIndexerService;
+import vn.cxn.graph.service.AiAnalysisService;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -41,15 +42,29 @@ public class MainController implements ApplicationListener<WebServerInitializedE
     @FXML
     private TextArea logConsole;
 
+    // AI FXML Controls
+    @FXML
+    private Button btnAiAnalyze;
+    @FXML
+    private Button btnStopAi;
+    @FXML
+    private Label aiStatusText;
+    @FXML
+    private ProgressBar aiProgressBar;
+    @FXML
+    private CheckBox chkDebug;
+
     private final CodeIndexerService codeIndexerService;
     private final ArcadeDbService arcadeDbService;
+    private final AiAnalysisService aiAnalysisService;
 
     private boolean mcpServerRunning = true;
     private int localServerPort = 3000;
 
-    public MainController(CodeIndexerService codeIndexerService, ArcadeDbService arcadeDbService) {
+    public MainController(CodeIndexerService codeIndexerService, ArcadeDbService arcadeDbService, AiAnalysisService aiAnalysisService) {
         this.codeIndexerService = codeIndexerService;
         this.arcadeDbService = arcadeDbService;
+        this.aiAnalysisService = aiAnalysisService;
     }
 
     @FXML
@@ -176,6 +191,57 @@ public class MainController implements ApplicationListener<WebServerInitializedE
             btnToggleMcp.setText("Disable MCP Server (SSE)");
             appendLog(">>> Re-activated MCP Server on port " + localServerPort);
         }
+    }
+
+    @FXML
+    private void handleAiAnalyze(ActionEvent event) {
+        btnAiAnalyze.setDisable(true);
+        btnStopAi.setDisable(false);
+        aiProgressBar.setProgress(0.0);
+        aiStatusText.setText("Status: Analyzing classes with local AI...");
+        aiAnalysisService.setDebugEnabled(chkDebug.isSelected());
+
+        aiAnalysisService.analyzeClassesAsync(new AiAnalysisService.ProgressListener() {
+            @Override
+            public void onProgress(String message, double progress) {
+                Platform.runLater(() -> {
+                    aiProgressBar.setProgress(progress);
+                    aiStatusText.setText("Progress: " + message);
+                    appendLog("[AI] " + message);
+                });
+            }
+
+            @Override
+            public void onComplete(int processed, int total) {
+                Platform.runLater(() -> {
+                    btnAiAnalyze.setDisable(false);
+                    btnStopAi.setDisable(true);
+                    aiProgressBar.setProgress(1.0);
+                    aiStatusText.setText("Status: Completed " + processed + "/" + total + " classes.");
+                    appendLog(">>> AI ANALYSIS COMPLETED. Processed: " + processed + "/" + total);
+                    showAlert("Success", "Successfully enriched database with AI-generated business summaries for " + processed + " classes/interfaces!");
+                });
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                Platform.runLater(() -> {
+                    btnAiAnalyze.setDisable(false);
+                    btnStopAi.setDisable(true);
+                    aiProgressBar.setProgress(0.0);
+                    aiStatusText.setText("Status: Error encountered.");
+                    appendLog(">>> AI ERROR ENCOUNTERED: " + t.getMessage());
+                    showAlert("AI Service Error", "An error occurred during AI analysis: " + t.getMessage());
+                });
+            }
+        });
+    }
+
+    @FXML
+    private void handleStopAi(ActionEvent event) {
+        aiAnalysisService.stopAnalysis();
+        appendLog("[AI] Stopping AI Analysis on user request...");
+        btnStopAi.setDisable(true);
     }
 
     private void appendLog(String message) {

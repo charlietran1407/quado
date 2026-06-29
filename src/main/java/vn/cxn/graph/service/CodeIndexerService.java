@@ -134,6 +134,41 @@ public class CodeIndexerService {
             }
         });
 
+        // 4. Dọn dẹp các nút mồ côi (stale nodes) cho các tệp tin đã bị xóa khỏi đĩa cứng
+        listener.onProgress("Cleaning up stale nodes (deleted files)...", 0.98);
+        db.transaction(() -> {
+            Set<String> DBFilepaths = new HashSet<>();
+            String[] types = {"Class", "Interface", "Method", "Table"};
+            for (String type : types) {
+                try (com.arcadedb.query.sql.executor.ResultSet rs = db.query("cypher", 
+                        String.format("MATCH (n:%s) WHERE n.filepath IS NOT NULL RETURN DISTINCT n.filepath as filepath", type))) {
+                    while (rs.hasNext()) {
+                        String fp = rs.next().getProperty("filepath");
+                        if (fp != null) {
+                            DBFilepaths.add(fp);
+                        }
+                    }
+                }
+            }
+
+            for (String fp : DBFilepaths) {
+                try {
+                    Path path = Path.of(fp);
+                    if (!Files.exists(path)) {
+                        log.info("Cleaning up stale nodes for deleted file: {}", fp);
+                        Map<String, Object> params = Map.of("filepath", fp);
+                        for (String type : types) {
+                            db.command("cypher", 
+                                    String.format("MATCH (n:%s) WHERE n.filepath = $filepath DETACH DELETE n", type), 
+                                    params);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Lỗi khi kiểm tra hoặc dọn dẹp file rác: " + fp, e);
+                }
+            }
+        });
+
         listener.onProgress("Scan completed successfully!", 1.0);
         listener.onComplete(totalFiles);
         log.info("Graph indexing completed. Processed {} files.", totalFiles);

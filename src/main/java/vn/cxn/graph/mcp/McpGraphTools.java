@@ -6,6 +6,7 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Component;
 import vn.cxn.graph.service.ArcadeDbService;
+import vn.cxn.graph.service.AiAnalysisService;
 
 import java.util.*;
 
@@ -13,9 +14,11 @@ import java.util.*;
 public class McpGraphTools {
 
     private final ArcadeDbService arcadeDbService;
+    private final AiAnalysisService aiAnalysisService;
 
-    public McpGraphTools(ArcadeDbService arcadeDbService) {
+    public McpGraphTools(ArcadeDbService arcadeDbService, AiAnalysisService aiAnalysisService) {
         this.arcadeDbService = arcadeDbService;
+        this.aiAnalysisService = aiAnalysisService;
     }
 
     @McpTool(description = "Lấy thông tin tổng quan của đồ thị mã nguồn (số lượng Class, Interface, Method)")
@@ -49,14 +52,14 @@ public class McpGraphTools {
         db.transaction(() -> {
             try (ResultSet rs = db.query("cypher", 
                     "MATCH (c:Class) " +
-                    "RETURN c.name as name, c.package as package, c.filepath as filepath, 'Class' as type")) {
+                    "RETURN c.name as name, c.package as package, c.filepath as filepath, c.ai_summary as ai_summary, 'Class' as type")) {
                 while (rs.hasNext()) {
                     classes.add(new HashMap<>(rs.next().toMap()));
                 }
             }
             try (ResultSet rs = db.query("cypher", 
                     "MATCH (i:Interface) " +
-                    "RETURN i.name as name, i.package as package, i.filepath as filepath, 'Interface' as type")) {
+                    "RETURN i.name as name, i.package as package, i.filepath as filepath, i.ai_summary as ai_summary, 'Interface' as type")) {
                 while (rs.hasNext()) {
                     classes.add(new HashMap<>(rs.next().toMap()));
                 }
@@ -142,7 +145,7 @@ public class McpGraphTools {
             // Thử tìm Class trước
             try (ResultSet rs = db.query("cypher",
                     "MATCH (c:Class {name: $name}) " +
-                    "RETURN c.name as name, c.package as package, c.filepath as filepath, c.description as description, 'Class' as type",
+                    "RETURN c.name as name, c.package as package, c.filepath as filepath, c.description as description, c.ai_summary as ai_summary, 'Class' as type",
                     Map.of("name", className))) {
                 if (rs.hasNext()) {
                     result.putAll(rs.next().toMap());
@@ -152,7 +155,7 @@ public class McpGraphTools {
             // Thử tìm Interface nếu không thấy Class
             try (ResultSet rs = db.query("cypher",
                     "MATCH (i:Interface {name: $name}) " +
-                    "RETURN i.name as name, i.package as package, i.filepath as filepath, i.description as description, 'Interface' as type",
+                    "RETURN i.name as name, i.package as package, i.filepath as filepath, i.description as description, i.ai_summary as ai_summary, 'Interface' as type",
                     Map.of("name", className))) {
                 if (rs.hasNext()) {
                     result.putAll(rs.next().toMap());
@@ -176,7 +179,7 @@ public class McpGraphTools {
             try (ResultSet rs = db.query("cypher",
                     "MATCH (c:Class)-[:CONTAINS]->(m:Method {name: $name}) " +
                     "RETURN m.name as fqName, m.shortName as shortName, m.className as className, " +
-                    "m.description as description, c.filepath as filepath",
+                    "m.description as description, m.ai_summary as ai_summary, c.filepath as filepath",
                     Map.of("name", methodFqName))) {
                 if (rs.hasNext()) {
                     result.putAll(rs.next().toMap());
@@ -188,5 +191,90 @@ public class McpGraphTools {
             result.put("error", "Không tìm thấy Method với tên: " + methodFqName);
         }
         return result;
+    }
+
+    @McpTool(description = "Lấy danh sách các bảng dữ liệu (Table) được truy vấn bởi một phương thức cụ thể, kèm câu lệnh SQL chi tiết")
+    public List<Map<String, Object>> getMethodQueries(
+            @McpToolParam(description = "Tên đầy đủ của phương thức (ví dụ: TArticleType.Button1Click)") String methodFqName) {
+        Database db = arcadeDbService.getDatabase();
+        List<Map<String, Object>> queries = new ArrayList<>();
+
+        db.transaction(() -> {
+            try (ResultSet rs = db.query("cypher",
+                    "MATCH (m:Method {name: $methodFqName})-[r:QUERIES]->(t:Table) " +
+                    "RETURN t.name as tableName, r.sql as sqlQuery, t.filepath as filepath",
+                    Map.of("methodFqName", methodFqName))) {
+                while (rs.hasNext()) {
+                    queries.add(new HashMap<>(rs.next().toMap()));
+                }
+            }
+        });
+
+        return queries;
+    }
+
+    @McpTool(description = "Tìm kiếm các Class/Form và các Method thực hiện truy vấn (đọc/ghi) tới một bảng cơ sở dữ liệu cụ thể")
+    public List<Map<String, Object>> getTableUsers(
+            @McpToolParam(description = "Tên bảng cơ sở dữ liệu cần tra cứu (ví dụ: XXZL)") String tableName) {
+        Database db = arcadeDbService.getDatabase();
+        List<Map<String, Object>> users = new ArrayList<>();
+
+        db.transaction(() -> {
+            try (ResultSet rs = db.query("cypher",
+                    "MATCH (c:Class)-[:CONTAINS]->(m:Method)-[r:QUERIES]->(t:Table) " +
+                    "WHERE t.name =~ $tableNamePattern " +
+                    "RETURN c.name as className, m.name as methodFqName, r.sql as sqlQuery, t.name as tableName",
+                    Map.of("tableNamePattern", "(?i)" + tableName))) {
+                while (rs.hasNext()) {
+                    users.add(new HashMap<>(rs.next().toMap()));
+                }
+            }
+        });
+
+        return users;
+    }
+
+    @McpTool(description = "Bắt đầu tiến trình phân tích AI (tóm tắt nghiệp vụ) cho các Class/Interface chưa xử lý")
+    public Map<String, Object> analyzeClassesWithAi() {
+        Map<String, Object> response = new HashMap<>();
+        if (aiAnalysisService.isRunning()) {
+            response.put("status", "error");
+            response.put("message", "Tiến trình phân tích AI đã đang chạy.");
+            return response;
+        }
+
+        aiAnalysisService.analyzeClassesAsync(new AiAnalysisService.ProgressListener() {
+            @Override
+            public void onProgress(String message, double progress) {
+                // Không làm gì hoặc log ra nếu cần
+            }
+
+            @Override
+            public void onComplete(int processed, int total) {
+                // Hoàn thành
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                // Lỗi
+            }
+        });
+
+        response.put("status", "success");
+        response.put("message", "Đã kích hoạt tiến trình phân tích AI bất đồng bộ.");
+        return response;
+    }
+
+    @McpTool(description = "Lấy trạng thái và tiến độ của tiến trình phân tích AI")
+    public Map<String, Object> getAiAnalysisStatus() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("running", aiAnalysisService.isRunning());
+        response.put("processedCount", aiAnalysisService.getProcessedCount());
+        response.put("totalCount", aiAnalysisService.getTotalCount());
+        double progress = aiAnalysisService.getTotalCount() > 0 
+                ? (double) aiAnalysisService.getProcessedCount() / aiAnalysisService.getTotalCount()
+                : 0.0;
+        response.put("progress", progress);
+        return response;
     }
 }

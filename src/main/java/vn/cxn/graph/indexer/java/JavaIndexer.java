@@ -34,9 +34,18 @@ public class JavaIndexer implements SourceCodeIndexer {
 
     @Override
     public void index(Path file, Database db, List<MethodCallInfo> pendingMethodCalls) throws Exception {
-        CompilationUnit cu = StaticJavaParser.parse(file.toFile());
-        String filepath = file.toAbsolutePath().toString();
-        analyzeCompilationUnit(cu, filepath, db, pendingMethodCalls);
+        com.github.javaparser.ParserConfiguration config = new com.github.javaparser.ParserConfiguration();
+        config.setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_17);
+        com.github.javaparser.JavaParser parser = new com.github.javaparser.JavaParser(config);
+
+        com.github.javaparser.ParseResult<CompilationUnit> result = parser.parse(file.toFile());
+        if (result.isSuccessful() && result.getResult().isPresent()) {
+            CompilationUnit cu = result.getResult().get();
+            String filepath = file.toAbsolutePath().toString();
+            analyzeCompilationUnit(cu, filepath, db, pendingMethodCalls);
+        } else {
+            throw new com.github.javaparser.ParseProblemException(result.getProblems());
+        }
     }
 
     private void analyzeCompilationUnit(CompilationUnit cu, String filepath, Database db, List<MethodCallInfo> pendingMethodCalls) {
@@ -136,13 +145,24 @@ public class JavaIndexer implements SourceCodeIndexer {
                         String methodShortName = method.getNameAsString();
                         String fqMethodName = className + "." + methodShortName;
                         String methodDesc = cleanComment(method.getComment().orElse(null));
+                        int startLine = method.getBegin().map(pos -> pos.line).orElse(0);
+                        int endLine = method.getEnd().map(pos -> pos.line).orElse(0);
 
                         db.command("cypher",
                                 "MATCH (c:Class {name: $className, filepath: $filepath}) " +
                                 "MERGE (m:Method {name: $fqMethodName}) " +
-                                "SET m.shortName = $shortName, m.className = $className, m.description = $desc, m.filepath = $filepath " +
+                                "SET m.shortName = $shortName, m.className = $className, m.description = $desc, " +
+                                "m.filepath = $filepath, m.startLine = $startLine, m.endLine = $endLine " +
                                 "MERGE (c)-[:CONTAINS]->(m)",
-                                Map.of("className", className, "filepath", filepath, "fqMethodName", fqMethodName, "shortName", methodShortName, "desc", methodDesc)
+                                Map.of(
+                                        "className", className,
+                                        "filepath", filepath,
+                                        "fqMethodName", fqMethodName,
+                                        "shortName", methodShortName,
+                                        "desc", methodDesc,
+                                        "startLine", startLine,
+                                        "endLine", endLine
+                                )
                         );
 
                         // Thu thập lời gọi hàm để giải quyết sau khi quét xong toàn bộ dự án

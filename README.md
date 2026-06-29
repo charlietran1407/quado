@@ -89,11 +89,18 @@ Thêm cấu hình MCP vào file config của AI Client (Claude Desktop, Cursor, 
 }
 ```
 
+### Bước 3: Phân tích nghiệp vụ bằng AI cục bộ (Enrichment)
+
+1. Đảm bảo đã khởi chạy Ollama trên máy trạm cục bộ (`http://localhost:11434`) và kéo về model tương ứng (ví dụ: `ollama pull qwen2.5-coder:3b`).
+2. Sau khi index mã nguồn ở Bước 1, nhấp nút **"Start AI Analysis"** trong phần **AI KNOWLEDGE RICHNESS** trên giao diện Desktop.
+3. Tiến trình phân tích AI chạy bất đồng bộ để làm giàu tri thức của các đỉnh `Method` bằng thuộc tính `ai_summary` và chuyển trạng thái `is_analyzed = true`.
+4. Có thể nhấn **"Stop"** để dừng bất kỳ lúc nào.
+
 ---
 
 ## 🔌 MCP Tools — API cho AI Agent
 
-Sau khi kết nối, AI Agent có thể sử dụng 5 công cụ sau:
+Sau khi kết nối, AI Agent có thể sử dụng các công cụ sau:
 
 | Tool | Tham số | Mô tả |
 |------|---------|-------|
@@ -102,6 +109,8 @@ Sau khi kết nối, AI Agent có thể sử dụng 5 công cụ sau:
 | `traceMethodCalls` | `methodFqName` | Chuỗi gọi hàm (CALLS) từ một Method |
 | `getClassInfo` | `className` | Chi tiết Class/Interface kèm Javadoc/docstring, package, filepath |
 | `getMethodInfo` | `methodFqName` | Chi tiết Method kèm Javadoc/docstring, className, filepath |
+| `analyzeMethodsWithAi` | _(không có)_ | Kích hoạt bất đồng bộ tiến trình phân tích AI cho các Method chưa xử lý |
+| `getAiAnalysisStatus` | _(không có)_ | Lấy thông tin trạng thái & tiến độ của tiến trình phân tích AI |
 
 **Ví dụ truy vấn:**
 ```
